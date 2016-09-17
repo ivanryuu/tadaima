@@ -31,18 +31,20 @@ public class WifiReceiver extends BroadcastReceiver {
 
     private void sendSmsIfHomeNetwork(Context context, String BSSID) {
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
-        String bssid = sharedPref.getString("home_network", "");
-        if(BSSID.equals(bssid)) {
+        String[] homeNetworkValue = sharedPref.getString("home_network", context.getString(R.string.default_home_network))
+                        .split(context.getString(R.string.delimiter_home_network));
+
+        if(BSSID.equals(homeNetworkValue[1])) {
             String phoneNumber = sharedPref.getString("phone_number", "");
             String textMessage = sharedPref.getString("text_message", "I'm home!");
 
             SmsManager smsManager = SmsManager.getDefault();
             smsManager.sendTextMessage(phoneNumber, null, textMessage, null, null);
-            sendNotifiedNotification(context);
+            sendNotifiedNotification(context, sharedPref);
         }
     }
 
-    private void sendNotifiedNotification(Context context) {
+    private void sendNotifiedNotification(Context context, SharedPreferences preferences) {
         NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(context)
                 .setSmallIcon(R.drawable.ic_info_black_24dp)
                 .setContentTitle("Tadaima!")

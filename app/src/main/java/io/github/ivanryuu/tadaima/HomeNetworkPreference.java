@@ -19,51 +19,56 @@ import java.util.List;
  */
 public class HomeNetworkPreference extends ListPreference {
 
-    public HomeNetworkPreference(Context context, AttributeSet attrs) {
+    private final int SSID = 0;
+    private final int BSSID = 1;
+
+    public HomeNetworkPreference(final Context context, AttributeSet attrs) {
         super(context, attrs);
 
         WifiManager wifiManager = (WifiManager) getContext().getSystemService(getContext().WIFI_SERVICE);
+        List<ScanResult> scanResults = wifiManager.getScanResults();
 
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getContext());
+        final SharedPreferences.Editor editor = sharedPref.edit();
 
-        setEntries(entries(wifiManager));
-        setEntryValues(entryValues(wifiManager));
-        int index = initializeIndex();
+        String[] homeNetworkValue =
+                sharedPref.getString("home_network", context.getString(R.string.default_home_network))
+                .split(context.getString(R.string.delimiter_home_network));
+
+        ArrayList<String> ssidList = new ArrayList<>();
+        ArrayList<String> bssidList = new ArrayList<>();
+
+        initializeLists(scanResults, ssidList, bssidList);
+
+        int index = 0;
+        if(!homeNetworkValue[BSSID].equals("bssid")) {
+            index = initializeIndex(homeNetworkValue[BSSID], bssidList);
+
+            if(index == -1) {
+                ssidList.add(0, homeNetworkValue[SSID]);
+                bssidList.add(0, homeNetworkValue[BSSID]);
+                index = 0;
+            }
+            setSummary(homeNetworkValue[SSID]);
+        }
+
+        setEntries(ssidList.toArray(new String[ssidList.size()]));
+        setEntryValues(bssidList.toArray(new String[bssidList.size()]));
+
         setValueIndex(index);
-        setSummary(initializeSummary(index));
+
         setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
             @Override
-            public boolean onPreferenceChange(Preference preference, Object newValue) {
-                setSummary(getEntries()[findIndex((String)newValue)]);
+            public boolean onPreferenceChange(Preference preference, Object bssid) {
+                int index = findIndex((String)bssid);
+                String ssid = getEntries()[index].toString();
+                editor.putString("home_network", ssid + context.getString(R.string.delimiter_home_network) + bssid)
+                        .apply();
+
+                setSummary(ssid);
                 return true;
             }
         });
-    }
-
-    public HomeNetworkPreference(Context context) {
-        this(context, null);
-    }
-
-    private CharSequence[] entries(WifiManager wifiManager) {
-
-        ArrayList<String> ssidList = new ArrayList<>();
-        for(ScanResult result : wifiManager.getScanResults()) {
-            ssidList.add(result.SSID);
-        }
-        return ssidList.toArray(new String[ssidList.size()]);
-    }
-
-    private CharSequence[] entryValues(WifiManager wifiManager) {
-        ArrayList<String> ssidList = new ArrayList<>();
-        for(ScanResult result : wifiManager.getScanResults()) {
-            ssidList.add(result.BSSID);
-        }
-        return ssidList.toArray(new String[ssidList.size()]);
-    }
-
-    private int initializeIndex() {
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getContext());
-        String bssid = sharedPref.getString("home_network", "");
-        return findIndex(bssid);
     }
 
     private int findIndex(String bssid) {
@@ -71,7 +76,14 @@ public class HomeNetworkPreference extends ListPreference {
         return i != -1 ? i : 0;
     }
 
-    private CharSequence initializeSummary(int index) {
-        return getEntries()[index];
+    private int initializeIndex(String bssid, ArrayList<String> bssidList) {
+        return bssidList.indexOf(bssid);
+    }
+
+    private void initializeLists(List<ScanResult> scanResults, List<String> ssidList, List<String> bssidList) {
+        for(ScanResult result : scanResults) {
+            ssidList.add(result.SSID);
+            bssidList.add(result.BSSID);
+        }
     }
 }
